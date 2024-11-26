@@ -47,7 +47,19 @@ if __name__ == '__main__':
         x_img = torch.FloatTensor(img.transpose([2, 0, 1]).copy())       
         x = x_img.unsqueeze(0)
         depth = net(x.to(device))  
-       
+        print("export start")
+        torch.onnx.export(net,               # model being run
+                        x.to(device),                         # model input (or a tuple for multiple inputs)
+                        "super_resolution.onnx",   # where to save the model (can be a file or file-like object)
+                        export_params=True,        # store the trained parameter weights inside the model file
+                        opset_version=15,          # the ONNX version to export the model to
+                        do_constant_folding=True,  # whether to execute constant folding for optimization
+                        input_names = ['input'],   # the model's input names
+                        output_names = ['output'], # the model's output names
+                        dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
+                                        'output' : {0 : 'batch_size'}})
+        print("export end")
+            
         plt.imshow(depth.cpu().numpy().squeeze())  
         plt.show() 
         print("depth: {}".format(depth.shape))
