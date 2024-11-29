@@ -5,39 +5,67 @@ using UnityEngine.Assertions;
 public class supTest : MonoBehaviour
 {
     public ModelAsset modelAsset;
-   
+    public Texture2D inputtex;
     Worker m_Worker;
+    public RenderTexture outputtex;
+    Tensor<float> tensor;
+    public Material mat;
     // Start is called before the first frame update
     void Start()
     {
-        Tensor<float> tensor = new Tensor<float>(new TensorShape(1,1,28,28));
-        for(int i = 0; i < 28; i++)
-        {
-            for(int j = 0; j < 28; j++)
-            {
-                tensor[0, 0, i, j] = 1f;
-            }
-        }
-        float[]  tesarray = tensor.DownloadToArray();
-        for (int i = 0; i < tesarray.Length; i++)
-        {
-            Debug.Log("i: " + i + " tensor; " + tesarray[i]);
-        }
-   
+        tensor = TextureConverter.ToTensor(inputtex, width: 1024, height: 512);
+        
         var model = ModelLoader.Load(modelAsset);
         m_Worker = new Worker(model, BackendType.GPUCompute);
         m_Worker.Schedule(tensor);
         var outputTensor = m_Worker.PeekOutput("output") as Tensor<float>;
-        var array = outputTensor.DownloadToArray();
-        for(int i=0;i<array.Length;i++)
-        {
-            Debug.Log("i: "+i+" v; "+array[i]);
-        }
+        
+        Texture2D tex=TensorToTexture2D(outputTensor.ReadbackAndClone());
+        mat.mainTexture = tex;
     }
+    Texture2D TensorToTexture2D(Tensor<float> tensor)
+    {
+        int width = tensor.shape[2];
+        int height = tensor.shape[1];
 
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        float min = float.MaxValue;
+        float max = float.MinValue;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                float value = tensor[0, y, x];  // 値を取得
+                
+                if (min > value) min = value;
+                if (max < value) max = value;
+            }
+        }
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                float value = tensor[0, y, x];  // 値を取得
+                value = (value - min) / (max - min);
+                Color color = new Color(value, value, value, 1.0f);  // グレースケールに変換
+                texture.SetPixel(x, y, color);
+               
+            }
+        }
+
+        texture.Apply();
+        return texture;
+    }
     // Update is called once per frame
     void Update()
     {
         
+    }
+    void OnDisable()
+    {
+        // Clean up Sentis resources.
+        m_Worker.Dispose();
+        tensor.Dispose();
     }
 }
