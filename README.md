@@ -8,5 +8,8 @@ ZoeDepth
 
  https://github.com/isl-org/ZoeDepth
 
+ inference 
+ 
+
  conda env create -n zoe --file environment.yml
 conda activate zoe
